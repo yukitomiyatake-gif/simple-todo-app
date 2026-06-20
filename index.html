@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Todo ガント</title>
+  <title>Todo</title>
   <style>
     :root {
       color-scheme: light;
@@ -159,6 +159,84 @@
       background: #1b6f4d;
     }
 
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .mode-switch {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      background: #e9eee9;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .mode-button {
+      min-height: 36px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 16px;
+    }
+
+    .mode-button.active {
+      background: var(--panel);
+      color: var(--text);
+      box-shadow: 0 3px 12px rgba(31, 43, 35, 0.08);
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .list {
+      overflow: hidden;
+    }
+
+    .list-row {
+      display: grid;
+      grid-template-columns: 1.3fr auto minmax(180px, 0.8fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .list-row:first-child {
+      border-top: 0;
+    }
+
+    .list-row.done .task-name {
+      color: var(--muted);
+      text-decoration: line-through;
+    }
+
+    .list-row .status {
+      justify-self: start;
+    }
+
+    .task-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-weight: 800;
+    }
+
+    .date-range {
+      color: var(--muted);
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
     .chart {
       overflow-x: auto;
     }
@@ -172,7 +250,7 @@
     }
 
     .chart-header,
-    .task {
+    .gantt-row {
       display: grid;
       grid-template-columns: 190px repeat(var(--days), minmax(42px, 1fr)) 92px;
     }
@@ -206,17 +284,17 @@
       background: var(--done-soft);
     }
 
-    .task {
+    .gantt-row {
       position: relative;
       min-height: 72px;
       border-top: 1px solid var(--line);
     }
 
-    .task:first-of-type {
+    .gantt-row:first-of-type {
       border-top: 0;
     }
 
-    .task.done .task-name {
+    .gantt-row.done .task-name {
       color: var(--muted);
       text-decoration: line-through;
     }
@@ -229,10 +307,9 @@
       z-index: 1;
     }
 
-    .task-name {
-      min-width: 0;
-      overflow-wrap: anywhere;
-      font-weight: 800;
+    .gantt-row .task-info {
+      grid-column: 1;
+      grid-row: 1;
     }
 
     .meta {
@@ -271,6 +348,7 @@
     }
 
     .cell {
+      grid-row: 1;
       border-left: 1px solid var(--line);
       background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.025), rgba(0, 0, 0, 0.025));
       background-size: 100% 1px;
@@ -279,6 +357,7 @@
     }
 
     .bar {
+      grid-row: 1;
       align-self: center;
       height: 26px;
       margin: 0 4px;
@@ -313,6 +392,11 @@
       gap: 8px;
       background: var(--panel);
       z-index: 1;
+    }
+
+    .gantt-row .task-actions {
+      grid-column: -2 / -1;
+      grid-row: 1;
     }
 
     .icon-button {
@@ -365,12 +449,46 @@
         grid-template-columns: 1fr;
       }
 
+      .toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .mode-switch {
+        width: 100%;
+      }
+
+      .list-row {
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        padding: 14px 10px;
+      }
+
+      .list-row .status,
+      .date-range {
+        grid-column: 1;
+      }
+
+      .list-row .task-actions {
+        grid-column: 1 / -1;
+        grid-row: auto;
+        gap: 6px;
+        justify-content: start;
+        padding: 0;
+      }
+
+      .list-row .icon-button {
+        width: 34px;
+        min-width: 34px;
+        min-height: 34px;
+      }
+
       .chart-grid {
         min-width: 700px;
       }
 
       .chart-header,
-      .task {
+      .gantt-row {
         grid-template-columns: 168px repeat(var(--days), minmax(38px, 1fr)) 86px;
       }
     }
@@ -414,13 +532,25 @@
       <button class="add" type="submit">追加</button>
     </form>
 
-    <section class="panel chart" aria-label="タスクのガントチャート">
+    <div class="toolbar">
+      <div class="mode-switch" aria-label="表示モード">
+        <button class="mode-button active" type="button" data-view="list">一覧</button>
+        <button class="mode-button" type="button" data-view="gantt">ガント</button>
+      </div>
+    </div>
+
+    <section class="panel view active" id="list-view" aria-label="タスク一覧">
+      <div class="list" id="list"></div>
+    </section>
+
+    <section class="panel chart view" id="gantt-view" aria-label="タスクのガントチャート">
       <div class="chart-grid" id="chart"></div>
     </section>
   </main>
 
   <script>
     const storageKey = "personal-todo-app-tasks";
+    const viewStorageKey = "personal-todo-app-view";
     const statusLabels = {
       todo: "未着手",
       doing: "着手中",
@@ -432,10 +562,17 @@
     const statusInput = document.querySelector("#task-status");
     const startInput = document.querySelector("#task-start");
     const endInput = document.querySelector("#task-end");
+    const listEl = document.querySelector("#list");
     const chartEl = document.querySelector("#chart");
     const summaryEl = document.querySelector("#summary");
+    const modeButtons = [...document.querySelectorAll(".mode-button")];
+    const views = {
+      list: document.querySelector("#list-view"),
+      gantt: document.querySelector("#gantt-view")
+    };
 
     let tasks = loadTasks();
+    let currentView = localStorage.getItem(viewStorageKey) || "list";
 
     function toDate(value) {
       const date = new Date(`${value}T00:00:00`);
@@ -447,6 +584,11 @@
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
+    }
+
+    function displayDate(value) {
+      const date = toDate(value);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
     }
 
     function addDays(date, amount) {
@@ -504,6 +646,31 @@
       return Array.from({ length: totalDays }, (_, index) => formatDate(addDays(start, index)));
     }
 
+    function renderActions() {
+      return `
+        <div class="task-actions">
+          <button class="icon-button complete" type="button" title="完了にする" aria-label="完了にする">✓</button>
+          <button class="icon-button delete" type="button" title="削除" aria-label="削除">×</button>
+        </div>
+      `;
+    }
+
+    function renderList() {
+      if (tasks.length === 0) {
+        listEl.innerHTML = '<div class="empty">タスクはまだありません</div>';
+        return;
+      }
+
+      listEl.innerHTML = tasks.map((task) => `
+        <article class="list-row ${task.status === "done" ? "done" : ""}" data-id="${task.id}">
+          <div class="task-name">${escapeHtml(task.name)}</div>
+          <span class="status ${task.status}">${statusLabels[task.status]}</span>
+          <div class="date-range">${displayDate(task.start)} - ${displayDate(task.end)}</div>
+          ${renderActions()}
+        </article>
+      `).join("");
+    }
+
     function renderHeader(timeline) {
       const today = formatDate(new Date());
       return `
@@ -511,7 +678,7 @@
           <div class="corner">タスク</div>
           ${timeline.map((date) => `
             <div class="day ${date === today ? "today" : ""}">
-              ${toDate(date).getMonth() + 1}/${toDate(date).getDate()}
+              ${displayDate(date)}
             </div>
           `).join("")}
           <div class="corner">操作</div>
@@ -519,37 +686,31 @@
       `;
     }
 
-    function renderTask(task, timeline) {
+    function renderGanttTask(task, timeline) {
       const startIndex = Math.max(0, timeline.indexOf(task.start));
       const endIndex = Math.max(startIndex, timeline.indexOf(task.end));
       const span = endIndex - startIndex + 1;
       const cells = timeline.map((date) => `<div class="cell" data-date="${date}"></div>`).join("");
 
       return `
-        <article class="task ${task.status === "done" ? "done" : ""}" data-id="${task.id}" style="--days: ${timeline.length}">
+        <article class="gantt-row ${task.status === "done" ? "done" : ""}" data-id="${task.id}" style="--days: ${timeline.length}">
           <div class="task-info">
             <div class="task-name">${escapeHtml(task.name)}</div>
             <div class="meta">
               <span class="status ${task.status}">${statusLabels[task.status]}</span>
-              <span>${task.start} - ${task.end}</span>
+              <span>${displayDate(task.start)} - ${displayDate(task.end)}</span>
             </div>
           </div>
           ${cells}
           <div class="bar ${task.status}" style="grid-column: ${startIndex + 2} / span ${span}">
             ${statusLabels[task.status]}
           </div>
-          <div class="task-actions">
-            <button class="icon-button complete" type="button" title="完了にする" aria-label="完了にする">✓</button>
-            <button class="icon-button delete" type="button" title="削除" aria-label="削除">×</button>
-          </div>
+          ${renderActions()}
         </article>
       `;
     }
 
-    function render() {
-      const unfinished = tasks.filter((task) => task.status !== "done").length;
-      summaryEl.textContent = `${tasks.length}件のタスク / 未完了 ${unfinished}件`;
-
+    function renderGantt() {
       if (tasks.length === 0) {
         chartEl.classList.add("is-empty");
         chartEl.innerHTML = '<div class="empty">タスクはまだありません</div>';
@@ -558,7 +719,30 @@
 
       chartEl.classList.remove("is-empty");
       const timeline = getTimeline();
-      chartEl.innerHTML = renderHeader(timeline) + tasks.map((task) => renderTask(task, timeline)).join("");
+      chartEl.innerHTML = renderHeader(timeline) + tasks.map((task) => renderGanttTask(task, timeline)).join("");
+    }
+
+    function setView(viewName) {
+      currentView = views[viewName] ? viewName : "list";
+      localStorage.setItem(viewStorageKey, currentView);
+
+      Object.entries(views).forEach(([name, element]) => {
+        element.classList.toggle("active", name === currentView);
+      });
+
+      modeButtons.forEach((button) => {
+        const isActive = button.dataset.view === currentView;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+    }
+
+    function render() {
+      const unfinished = tasks.filter((task) => task.status !== "done").length;
+      summaryEl.textContent = `${tasks.length}件のタスク / 未完了 ${unfinished}件`;
+      renderList();
+      renderGantt();
+      setView(currentView);
     }
 
     form.addEventListener("submit", (event) => {
@@ -584,9 +768,9 @@
       nameInput.focus();
     });
 
-    chartEl.addEventListener("click", (event) => {
+    function handleTaskAction(event) {
       const button = event.target.closest("button");
-      const taskEl = event.target.closest(".task");
+      const taskEl = event.target.closest("[data-id]");
       if (!button || !taskEl) return;
 
       const id = taskEl.dataset.id;
@@ -601,6 +785,13 @@
 
       save();
       render();
+    }
+
+    listEl.addEventListener("click", handleTaskAction);
+    chartEl.addEventListener("click", handleTaskAction);
+
+    modeButtons.forEach((button) => {
+      button.addEventListener("click", () => setView(button.dataset.view));
     });
 
     setDefaultDates();
