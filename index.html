@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Todo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --text: #1d2520;
+      --muted: #657168;
+      --line: #dfe5df;
+      --accent: #157f6f;
+      --accent-dark: #0f6256;
+      --danger: #b2413b;
+      --chip: #edf4f1;
+      --shadow: 0 18px 50px rgba(21, 36, 29, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    header {
+      padding: 14px 0 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .summary {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      padding: 0 12px;
+    }
+
+    input:focus,
+    select:focus,
+    button:focus-visible {
+      outline: 3px solid rgba(21, 127, 111, 0.24);
+      outline-offset: 2px;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .add {
+      background: var(--accent);
+      color: white;
+    }
+
+    .add:hover {
+      background: var(--accent-dark);
+    }
+
+    .tasks {
+      overflow: hidden;
+    }
+
+    .task {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .task:first-child {
+      border-top: 0;
+    }
+
+    .name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-weight: 700;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 78px;
+      min-height: 32px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--accent-dark);
+      font-size: 0.86rem;
+      font-weight: 700;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+
+    .status.doing {
+      background: #fff4df;
+      color: #875810;
+    }
+
+    .status.done {
+      background: #e9f0ee;
+      color: #60706a;
+    }
+
+    .task.done .name {
+      color: var(--muted);
+      text-decoration: line-through;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-button {
+      width: 40px;
+      min-width: 40px;
+      padding: 0;
+      background: #eef4f2;
+      color: var(--accent-dark);
+    }
+
+    .icon-button:hover {
+      background: #dcebe7;
+    }
+
+    .delete {
+      background: #f8e9e7;
+      color: var(--danger);
+    }
+
+    .delete:hover {
+      background: #efd1ce;
+    }
+
+    .empty {
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        padding: 16px 12px 28px;
+      }
+
+      h1 {
+        font-size: 1.7rem;
+      }
+
+      form {
+        grid-template-columns: 1fr;
+      }
+
+      .task {
+        grid-template-columns: 1fr auto;
+      }
+
+      .status {
+        grid-column: 1;
+        grid-row: 2;
+        justify-self: start;
+      }
+
+      .actions {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Todo</h1>
+      <p class="summary" id="summary">0件のタスク</p>
+    </header>
+
+    <form class="panel" id="task-form">
+      <input id="task-name" name="name" type="text" placeholder="タスク名" autocomplete="off" required>
+      <select id="task-status" name="status" aria-label="状態">
+        <option value="todo">未着手</option>
+        <option value="doing">着手中</option>
+        <option value="done">完了</option>
+      </select>
+      <button class="add" type="submit">追加</button>
+    </form>
+
+    <section class="panel tasks" id="tasks" aria-label="タスク一覧"></section>
+  </main>
+
+  <script>
+    const storageKey = "personal-todo-app-tasks";
+    const statusLabels = {
+      todo: "未着手",
+      doing: "着手中",
+      done: "完了"
+    };
+
+    const form = document.querySelector("#task-form");
+    const nameInput = document.querySelector("#task-name");
+    const statusInput = document.querySelector("#task-status");
+    const tasksEl = document.querySelector("#tasks");
+    const summaryEl = document.querySelector("#summary");
+
+    let tasks = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+    function save() {
+      localStorage.setItem(storageKey, JSON.stringify(tasks));
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    function render() {
+      const unfinished = tasks.filter((task) => task.status !== "done").length;
+      summaryEl.textContent = `${tasks.length}件のタスク / 未完了 ${unfinished}件`;
+
+      if (tasks.length === 0) {
+        tasksEl.innerHTML = '<div class="empty">タスクはまだありません</div>';
+        return;
+      }
+
+      tasksEl.innerHTML = tasks.map((task) => `
+        <article class="task ${task.status === "done" ? "done" : ""}" data-id="${task.id}">
+          <div class="name">${escapeHtml(task.name)}</div>
+          <span class="status ${task.status}">${statusLabels[task.status]}</span>
+          <div class="actions">
+            <button class="icon-button complete" type="button" title="完了にする" aria-label="完了にする">✓</button>
+            <button class="icon-button delete" type="button" title="削除" aria-label="削除">×</button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      tasks.unshift({
+        id: crypto.randomUUID(),
+        name,
+        status: statusInput.value
+      });
+
+      save();
+      render();
+      form.reset();
+      nameInput.focus();
+    });
+
+    tasksEl.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      const taskEl = event.target.closest(".task");
+      if (!button || !taskEl) return;
+
+      const id = taskEl.dataset.id;
+
+      if (button.classList.contains("complete")) {
+        tasks = tasks.map((task) => task.id === id ? { ...task, status: "done" } : task);
+      }
+
+      if (button.classList.contains("delete")) {
+        tasks = tasks.filter((task) => task.id !== id);
+      }
+
+      save();
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
